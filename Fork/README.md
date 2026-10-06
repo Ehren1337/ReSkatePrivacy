@@ -18,6 +18,27 @@ unchanged by this module. It does not disable other ReSkate network features.
 
 ## Update this fork
 
+Double-click `Update-From-Upstream.bat` in the source folder. It requires a clean
+`main` branch, fetches the original, merges its updates and pushes directly to
+`https://github.com/Ehren1337/ReSkatePrivacy.git`. It stops on conflicts or other
+errors and never creates a pull request or force-pushes. Git for Windows is required.
+
+To merge locally and review/build before pushing, run:
+
+```powershell
+.\Update-From-Upstream.bat --no-push
+```
+
+After resolving conflicts, commit the resolution before running the batch file
+again. Rebuild and review the privacy guards after each upstream update; the
+batch file cannot check the behavior of new code automatically.
+
+For the same workflow manually, make sure `origin` points to your privacy repository:
+
+```powershell
+git remote set-url origin https://github.com/Ehren1337/ReSkatePrivacy.git
+```
+
 If an `upstream` remote does not exist yet, add it once:
 
 ```powershell
@@ -29,6 +50,7 @@ With your local work committed, update and merge:
 ```powershell
 git fetch upstream
 git merge upstream/main
+git push origin main
 ```
 
 Keep the `Fork/` files and the small integration changes in `Launcher/` and
@@ -45,7 +67,7 @@ points; compile/link errors after an API change should be fixed before use.
 `patches/Apply-SteamPrivacyPatch.ps1` applies the module files, integration guards
 and the existing safer troubleshooting advice together. It checks the entire
 patch before applying it, skips already-patched source and rejects incompatible
-updates without changing files. The patch is based on upstream commit `5bfe4f7`.
+updates without changing files. The patch is based on upstream commit `dcc5e31`.
 
 Use either a merge into this fork or the patch on a fresh upstream checkout.
 Do not apply this patch over the earlier deletion-based privacy patch; update

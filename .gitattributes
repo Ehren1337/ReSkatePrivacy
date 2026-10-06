@@ -17,3 +17,5 @@ External/miniz/** -text
 
 # Preserve patch bytes and the whitespace used by diff context lines.
 patches/*.patch -text whitespace=-blank-at-eol
+
+Update-From-Upstream.bat text eol=crlf

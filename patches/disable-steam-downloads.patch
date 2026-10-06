@@ -460,7 +460,7 @@ index 92813c2..0c3583c 100644
  
  #include <atomic>
 diff --git a/cmake/Apps.cmake b/cmake/Apps.cmake
-index 35c239c..c2b3cf5 100644
+index 7c77a21..1c5f2fc 100644
 --- a/cmake/Apps.cmake
 +++ b/cmake/Apps.cmake
 @@ -3,6 +3,7 @@ if(WIN32)
@@ -481,7 +481,7 @@ index 35c239c..c2b3cf5 100644
      add_executable(dingosdk_mod_manager_tests Launcher/Test/mod_manager_tests.cpp Launcher/mod_manager.cpp)
      target_link_libraries(dingosdk_mod_manager_tests PRIVATE dingosdk_mod_list dingosdk_launcher_support dingosdk_miniz shell32)
      add_test(NAME launcher_mod_manager COMMAND dingosdk_mod_manager_tests)
-@@ -137,6 +141,7 @@ add_executable(dingosdk_server Server/main.cpp Server/server_host.cpp Server/ser
+@@ -157,6 +161,7 @@ add_executable(dingosdk_server Server/main.cpp Server/server_host.cpp Server/ser
      Extension/Multiplayer/Net/delta_codec.cpp Extension/Multiplayer/Net/wire_codec.cpp
      Extension/Multiplayer/Remote/playback_buffers.cpp Extension/Multiplayer/Session/password.cpp
      Server/server_activity.cpp Server/server_votes.cpp Extension/Throwdowns/throwdown_wire.cpp)
@@ -489,6 +489,80 @@ index 35c239c..c2b3cf5 100644
  target_include_directories(dingosdk_server SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/External/steam_networking")
  if(WIN32)
      target_link_libraries(dingosdk_server PRIVATE dingosdk_launcher_support dingosdk_world_layer_scan dingosdk_json
+diff --git a/Update-From-Upstream.bat b/Update-From-Upstream.bat
+new file mode 100644
+index 0000000..42310c2
+--- /dev/null
++++ b/Update-From-Upstream.bat
+@@ -0,0 +1,68 @@
++@echo off
++setlocal EnableExtensions DisableDelayedExpansion
++pushd "%~dp0" || exit /b 1
++set "result=1"
++if not "%~1"=="" if not "%~1"=="--no-push" (
++    echo Usage: Update-From-Upstream.bat [--no-push]
++    goto finish
++)
++where git >nul 2>&1
++if errorlevel 1 (
++    echo Git is missing. Install Git for Windows first.
++    goto finish
++)
++git rev-parse --show-toplevel >nul 2>&1
++if errorlevel 1 (
++    echo Run this file from inside your ReSkatePrivacy source checkout.
++    goto finish
++)
++set "branch="
++for /f "delims=" %%B in ('git branch --show-current') do set "branch=%%B"
++if not "%branch%"=="main" (
++    echo Switch to main first: git switch main
++    goto finish
++)
++git status --porcelain >nul
++if errorlevel 1 goto finish
++set "dirty="
++for /f "delims=" %%S in ('git status --porcelain') do set "dirty=yes"
++if defined dirty (
++    echo Commit or stash your local changes first, including any unfinished merge.
++    goto finish
++)
++if not exist "Fork\steam_privacy.h" (
++    echo The Steam privacy module is missing. Restore it before updating.
++    goto finish
++)
++echo Fetching the original ReSkate main...
++git fetch https://github.com/Dingo-Shenanigans/ReSkate.git refs/heads/main:refs/remotes/upstream/main
++if errorlevel 1 goto finish
++echo Merging original updates into your local main...
++git merge --no-edit upstream/main
++if errorlevel 1 (
++    echo.
++    echo The merge stopped. Run git status to see what needs attention.
++    echo Resolve conflicts while keeping the privacy module and its guards.
++    echo Then run git add for the resolved files and git commit.
++    echo Rebuild and check the privacy changes before running this file again.
++    echo Nothing was pushed.
++    goto finish
++)
++if "%~1"=="--no-push" (
++    echo Merge finished locally. Nothing was pushed.
++    set "result=0"
++    goto finish
++)
++echo Pushing only to Ehren1337/ReSkatePrivacy main...
++git push https://github.com/Ehren1337/ReSkatePrivacy.git HEAD:refs/heads/main
++if errorlevel 1 (
++    echo Push failed. Your merged work remains locally; nothing was force-pushed.
++    goto finish
++)
++echo Done. No pull request was created.
++echo Rebuild before using the updated mod. Review new Steam download code after updates.
++set "result=0"
++:finish
++popd
++if not defined RESKATE_SYNC_NO_PAUSE pause
++exit /b %result%
 diff --git a/Fork/launcher_privacy.cpp b/Fork/launcher_privacy.cpp
 new file mode 100644
 index 0000000..7058d39
@@ -535,10 +609,10 @@ index 0000000..7058d39
 +} // namespace dingosdk::launcher_gui::detail
 diff --git a/Fork/README.md b/Fork/README.md
 new file mode 100644
-index 0000000..b2670f8
+index 0000000..3de6bd7
 --- /dev/null
 +++ b/Fork/README.md
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,77 @@
 +# Maintaining the Steam privacy module
 +
 +This fork keeps upstream Steam sign-in and depot-download sections behind
@@ -559,6 +633,27 @@ index 0000000..b2670f8
 +
 +## Update this fork
 +
++Double-click `Update-From-Upstream.bat` in the source folder. It requires a clean
++`main` branch, fetches the original, merges its updates and pushes directly to
++`https://github.com/Ehren1337/ReSkatePrivacy.git`. It stops on conflicts or other
++errors and never creates a pull request or force-pushes. Git for Windows is required.
++
++To merge locally and review/build before pushing, run:
++
++```powershell
++.\Update-From-Upstream.bat --no-push
++```
++
++After resolving conflicts, commit the resolution before running the batch file
++again. Rebuild and review the privacy guards after each upstream update; the
++batch file cannot check the behavior of new code automatically.
++
++For the same workflow manually, make sure `origin` points to your privacy repository:
++
++```powershell
++git remote set-url origin https://github.com/Ehren1337/ReSkatePrivacy.git
++```
++
 +If an `upstream` remote does not exist yet, add it once:
 +
 +```powershell
@@ -570,6 +665,7 @@ index 0000000..b2670f8
 +```powershell
 +git fetch upstream
 +git merge upstream/main
++git push origin main
 +```
 +
 +Keep the `Fork/` files and the small integration changes in `Launcher/` and
@@ -586,7 +682,7 @@ index 0000000..b2670f8
 +`patches/Apply-SteamPrivacyPatch.ps1` applies the module files, integration guards
 +and the existing safer troubleshooting advice together. It checks the entire
 +patch before applying it, skips already-patched source and rejects incompatible
-+updates without changing files. The patch is based on upstream commit `5bfe4f7`.
++updates without changing files. The patch is based on upstream commit `dcc5e31`.
 +
 +Use either a merge into this fork or the patch on a fresh upstream checkout.
 +Do not apply this patch over the earlier deletion-based privacy patch; update
